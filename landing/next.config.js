@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Ensure all pages render with Brazilian Portuguese locale
-  i18n: {
-    locales: ["pt-BR"],
-    defaultLocale: "pt-BR",
-  },
+  // Disable telemetry in CI
+  ...(process.env.CI && { env: { NEXT_TELEMETRY_DISABLED: "1" } }),
 };
 
 module.exports = nextConfig;

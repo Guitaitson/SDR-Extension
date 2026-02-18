@@ -24,6 +24,14 @@ export default function MainScreen({ session: _session }: Props) {
 
   useEffect(() => {
     getUserProfile().then(setProfile).catch(console.error);
+
+    // Pick up CNPJ queued by content script
+    chrome.storage.local.get("pending_cnpj", (result: { pending_cnpj?: string }) => {
+      if (result.pending_cnpj) {
+        setCnpj(formatCnpj(result.pending_cnpj));
+        chrome.storage.local.remove("pending_cnpj");
+      }
+    });
   }, []);
 
   const handleLookup = async () => {
@@ -33,8 +41,7 @@ export default function MainScreen({ session: _session }: Props) {
       return;
     }
 
-    const atLimit =
-      profile && profile.lookups_used_this_month >= profile.lookups_limit;
+    const atLimit = profile && profile.lookups_used_this_month >= profile.lookups_limit;
     if (atLimit) {
       setState({
         status: "error",
@@ -47,7 +54,6 @@ export default function MainScreen({ session: _session }: Props) {
     try {
       const result = await lookupCnpj(raw);
       setState({ status: "result", data: result });
-      // Refresh usage count
       getUserProfile().then(setProfile).catch(console.error);
     } catch (err) {
       setState({
@@ -59,14 +65,12 @@ export default function MainScreen({ session: _session }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* Usage Badge */}
       {profile && (
         <div style={{ padding: "8px 16px 0" }}>
           <UsageBadge profile={profile} />
         </div>
       )}
 
-      {/* CNPJ Input */}
       <div style={{ padding: "12px 16px" }}>
         <CnpjInput
           value={cnpj}
@@ -77,91 +81,36 @@ export default function MainScreen({ session: _session }: Props) {
         />
       </div>
 
-      {/* State output */}
-      {state.status === "loading" && <LoadingState />}
-      {state.status === "error" && <ErrorState message={state.message} onRetry={() => setState({ status: "idle" })} />}
+      {state.status === "loading" && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 32 }}>
+          <div style={{ width: 28, height: 28, border: "3px solid #334155", borderTopColor: "#3b82f6", borderRadius: "50%" }} />
+          <div style={{ fontSize: 13, color: "#64748b" }}>Consultando CNPJ e gerando mensagem...</div>
+        </div>
+      )}
+
+      {state.status === "error" && (
+        <div style={{ margin: "0 16px 16px", padding: 12, background: "#450a0a", borderRadius: 8, border: "1px solid #7f1d1d", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 13, color: "#fca5a5" }}>{state.message}</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setState({ status: "idle" })} style={{ fontSize: 12, color: "#93c5fd", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              Tentar novamente
+            </button>
+            {state.message.includes("Limite") && (
+              <a href="https://sdrextension.com.br/pricing" target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#fbbf24", textDecoration: "none" }}>
+                Ver planos →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {state.status === "result" && <ResultCard result={state.data} />}
 
       {state.status === "idle" && (
-        <div
-          style={{
-            padding: "0 16px 16px",
-            fontSize: 12,
-            color: "#475569",
-            lineHeight: 1.5,
-          }}
-        >
-          Cole um CNPJ acima para gerar o briefing da empresa e a mensagem de
-          prospecção.
+        <div style={{ padding: "0 16px 16px", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+          Cole um CNPJ acima para gerar o briefing da empresa e a mensagem de prospecção.
         </div>
       )}
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 12,
-        padding: 32,
-      }}
-    >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          border: "3px solid #334155",
-          borderTopColor: "#3b82f6",
-          borderRadius: "50%",
-          animation: "spin 0.8s linear infinite",
-        }}
-      />
-      <div style={{ fontSize: 13, color: "#64748b" }}>
-        Consultando CNPJ e gerando mensagem...
-      </div>
-    </div>
-  );
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div
-      style={{
-        margin: "0 16px 16px",
-        padding: 12,
-        background: "#450a0a",
-        borderRadius: 8,
-        border: "1px solid #7f1d1d",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <div style={{ fontSize: 13, color: "#fca5a5" }}>{message}</div>
-      <button
-        onClick={onRetry}
-        style={{
-          alignSelf: "flex-start",
-          fontSize: 12,
-          color: "#93c5fd",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: 0,
-        }}
-      >
-        Tentar novamente
-      </button>
     </div>
   );
 }
