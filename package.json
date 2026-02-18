@@ -1,0 +1,22 @@
+{
+  "name": "sdr-extension-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "B2B prospecting Chrome Extension for Brazilian market — monorepo",
+  "workspaces": [
+    "extension",
+    "landing"
+  ],
+  "scripts": {
+    "dev:extension": "pnpm --filter sdr-extension dev",
+    "dev:landing": "pnpm --filter sdr-extension-landing dev",
+    "build:extension": "pnpm --filter sdr-extension build",
+    "build:landing": "pnpm --filter sdr-extension-landing build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
