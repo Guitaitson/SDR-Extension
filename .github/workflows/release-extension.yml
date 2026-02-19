@@ -1,0 +1,67 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - "ext-v*"
+
+jobs:
+  release:
+    name: Build, package & release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: extension/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: extension
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production extension
+        working-directory: extension
+        run: pnpm build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Package extension
+        run: |
+          cd extension/dist
+          zip -r ../../sdr-extension-${{ github.ref_name }}.zip .
+
+      - name: Upload to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v5.0.0
+        with:
+          file-path: sdr-extension-${{ github.ref_name }}.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sdr-extension-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          body: |
+            ## SDR Extension ${{ github.ref_name }}
+
+            Baixe e instale manualmente no Chrome ou aguarde aprovação da Chrome Web Store.
+
+            **Instalação manual:**
+            1. Baixe o arquivo `.zip`
+            2. Extraia para uma pasta
+            3. Abra `chrome://extensions` → ative "Modo desenvolvedor"
+            4. Clique em "Carregar sem compactação" → selecione a pasta extraída
