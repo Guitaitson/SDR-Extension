@@ -13,6 +13,9 @@ export default function Footer() {
       }}
     >
       <div style={{ display: "flex", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
+        <a href="/blog" style={{ color: "#475569", textDecoration: "none" }}>
+          Blog
+        </a>
         <a href="/privacidade" style={{ color: "#475569", textDecoration: "none" }}>
           Política de Privacidade
         </a>
