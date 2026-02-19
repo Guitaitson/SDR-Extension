@@ -24,13 +24,17 @@ export default defineManifest({
       run_at: "document_idle",
     },
   ],
-  permissions: ["storage", "activeTab"],
+  permissions: ["storage", "activeTab", "alarms"],
   host_permissions: [
     // Supabase Edge Functions — replace with your actual project URL
     "https://*.supabase.co/*",
   ],
+  // Permite que a página de callback envie mensagens para a extensão
+  externally_connectable: {
+    matches: ["https://sellhelper.gtaitson.space/*"],
+  },
   content_security_policy: {
     extension_pages:
-      "script-src 'self'; object-src 'self'; connect-src 'self' https://*.supabase.co;",
+      "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co ws://localhost:* http://localhost:*;",
   },
 });

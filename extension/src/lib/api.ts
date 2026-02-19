@@ -68,10 +68,16 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
 /** Send magic-link sign-in email */
 export async function signInWithMagicLink(email: string): Promise<void> {
+  // Get the extension ID to pass to the callback page
+  const extensionId = chrome.runtime.id;
+  
+  // Build the redirect URL with extension ID
+  const redirectUrl = `https://sellhelper.gtaitson.space/callback.html?extension_id=${extensionId}`;
+  
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: undefined, // extension handles the token separately
+      emailRedirectTo: redirectUrl,
       shouldCreateUser: true,
     },
   });
