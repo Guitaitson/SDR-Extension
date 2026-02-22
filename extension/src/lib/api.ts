@@ -72,7 +72,9 @@ export async function signInWithMagicLink(email: string): Promise<void> {
   const extensionId = chrome.runtime.id;
   
   // Build the redirect URL with extension ID
-  const redirectUrl = `https://sellhelper.gtaitson.space/callback.html?extension_id=${extensionId}`;
+  const callbackOrigin =
+    import.meta.env.VITE_CALLBACK_ORIGIN ?? "https://sellhelper.gtaitson.space";
+  const redirectUrl = `${callbackOrigin}/callback.html?extension_id=${extensionId}`;
   
   const { error } = await supabase.auth.signInWithOtp({
     email,

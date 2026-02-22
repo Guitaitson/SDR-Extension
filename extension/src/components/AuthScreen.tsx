@@ -153,7 +153,7 @@ export default function AuthScreen() {
       // Reload to update the UI
       window.location.reload();
     } catch (err) {
-      setError("Token invalido. Verifique o formato JSON.");
+      setError("Token inválido. Verifique o formato JSON.");
     } finally {
       setLoading(false);
     }
@@ -166,11 +166,11 @@ export default function AuthScreen() {
           <div style={s.successTitle}>Verifique seu e-mail</div>
           <div style={s.successText}>
             Enviamos um link de acesso para <strong>{email}</strong>. Clique no
-            link para entrar — nenhuma senha necessaria.
+            link para entrar — nenhuma senha necessária.
           </div>
         </div>
         <div style={{ ...s.subtitle, fontSize: 12, textAlign: "center" }}>
-          Apos clicar no link, se o login nao for automatico,{" "}
+          Após clicar no link, se o login não for automático,{" "}
           <span style={s.link} onClick={() => setStep("token")}>
             cole o token aqui
           </span>
@@ -188,7 +188,7 @@ export default function AuthScreen() {
         <div>
           <div style={s.title}>Colar Token</div>
           <div style={{ ...s.subtitle, marginTop: 4 }}>
-            Cole o token JSON que aparece na pagina de callback apos o login.
+            Cole o token JSON que aparece na página de callback após o login.
           </div>
         </div>
         <form
@@ -222,7 +222,7 @@ export default function AuthScreen() {
       <div>
         <div style={s.title}>Bem-vindo</div>
         <div style={{ ...s.subtitle, marginTop: 4 }}>
-          Entre com seu e-mail para acessar a extensao.
+          Entre com seu e-mail para acessar a extensão.
         </div>
       </div>
       <form
@@ -244,19 +244,19 @@ export default function AuthScreen() {
           disabled={loading}
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
         >
-          {loading ? "Enviando..." : "Entrar com link magico"}
+          {loading ? "Enviando..." : "Entrar com link mágico"}
         </button>
       </form>
       <div style={{ ...s.subtitle, fontSize: 12, textAlign: "center" }}>
-        Ja tem um token?{" "}
+        Já tem um token?{" "}
         <span style={s.link} onClick={() => setStep("token")}>
           Cole aqui
         </span>
       </div>
       <div style={{ ...s.subtitle, fontSize: 11, textAlign: "center" }}>
-        Ao entrar, voce concorda com nossos Termos de Uso e Politica de
-        Privacidade. Dados de CNPJ utilizados com base no legitimo interesse
-        (LGPD, Art. 7, IX).
+        Ao entrar, você concorda com nossos Termos de Uso e Política de
+        Privacidade. Dados de CNPJ utilizados com base no legítimo interesse
+        (LGPD, Art. 7º, IX).
       </div>
     </div>
   );
