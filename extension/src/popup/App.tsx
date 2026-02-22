@@ -6,10 +6,11 @@ import MainScreen from "@/components/MainScreen";
 import SettingsScreen from "@/components/SettingsScreen";
 import HistoryScreen from "@/components/HistoryScreen";
 import Header from "@/components/Header";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export type AppScreen = "main" | "settings" | "history";
 
-export default function App() {
+function AppInner() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [screen, setScreen] = useState<AppScreen>("main");
@@ -24,6 +25,7 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      if (s) setScreen("main");
     });
 
     return () => subscription.unsubscribe();
@@ -50,5 +52,13 @@ export default function App() {
         <MainScreen session={session} />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }

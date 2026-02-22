@@ -1,18 +1,26 @@
 import { useState } from "react";
-import type { EnrichmentResult } from "@/types";
+import type { EnrichmentResult, SuggestedContact } from "@/types";
 import { formatCnpj } from "@/lib/cnpj";
 
 interface Props {
   result: EnrichmentResult;
 }
 
-type Tab = "briefing" | "email" | "whatsapp" | "objections";
+type Tab = "briefing" | "email" | "whatsapp" | "objections" | "contacts";
 
 const TAB_LABELS: Record<Tab, string> = {
-  briefing: "Briefing",
-  email: "E-mail",
-  whatsapp: "WhatsApp",
+  briefing:   "Briefing",
+  email:      "E-mail",
+  whatsapp:   "WhatsApp",
   objections: "Objeções",
+  contacts:   "Contatos",
+};
+
+const SOURCE_LABEL: Record<SuggestedContact["source"], { label: string; color: string }> = {
+  apollo:   { label: "Apollo",   color: "#1d4ed8" },
+  lusha:    { label: "Lusha",    color: "#15803d" },
+  clay:     { label: "Clay",     color: "#7e22ce" },
+  inferred: { label: "Inferido", color: "#475569" },
 };
 
 export default function ResultCard({ result }: Props) {
@@ -94,7 +102,7 @@ export default function ResultCard({ result }: Props) {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #1e293b", paddingBottom: 0 }}>
-        {(["briefing", "email", "whatsapp", "objections"] as Tab[]).map((t) => (
+        {(["briefing", "email", "whatsapp", "objections", "contacts"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -190,6 +198,51 @@ export default function ResultCard({ result }: Props) {
           ) : (
             <div style={{ fontSize: 13, color: "#475569" }}>
               Scripts de objeção disponíveis no plano Pro.
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "contacts" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {result.suggested_contacts && result.suggested_contacts.length > 0 ? (
+            result.suggested_contacts.map((contact, i) => {
+              const src = SOURCE_LABEL[contact.source] ?? SOURCE_LABEL.inferred;
+              return (
+                <div
+                  key={i}
+                  style={{ background: "#1e293b", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: "#f1f5f9" }}>{contact.name}</div>
+                    <span style={{ fontSize: 10, background: src.color, color: "#fff", padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>
+                      {src.label}
+                    </span>
+                  </div>
+                  {contact.title && (
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{contact.title}</div>
+                  )}
+                  {contact.email && (
+                    <a href={`mailto:${contact.email}`} style={{ fontSize: 12, color: "#60a5fa", textDecoration: "none" }}>
+                      {contact.email}
+                    </a>
+                  )}
+                  {contact.phone && (
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{contact.phone}</div>
+                  )}
+                  {contact.linkedin_url && (
+                    <a href={contact.linkedin_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#3b82f6", textDecoration: "none" }}>
+                      LinkedIn →
+                    </a>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+              Nenhum contato encontrado.{" "}
+              Configure suas chaves Apollo, Lusha ou Clay em{" "}
+              <strong style={{ color: "#94a3b8" }}>Configurações → BYOK</strong>.
             </div>
           )}
         </div>

@@ -46,21 +46,25 @@ export const CnpjDataSchema = z.object({
 export type CnpjData = z.infer<typeof CnpjDataSchema>;
 export type Socio = z.infer<typeof SocioSchema>;
 
+// ─── Suggested Contact ────────────────────────────────────────────────────────
+
+export const SuggestedContactSchema = z.object({
+  name: z.string(),
+  title: z.string(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  linkedin_url: z.string().optional(),
+  source: z.enum(["apollo", "lusha", "clay", "inferred"]),
+});
+
+export type SuggestedContact = z.infer<typeof SuggestedContactSchema>;
+
 // ─── Enrichment Result ───────────────────────────────────────────────────────
 
 export const EnrichmentResultSchema = z.object({
   cnpj_data: CnpjDataSchema,
-  suggested_contacts: z
-    .array(
-      z.object({
-        name: z.string(),
-        title: z.string(),
-        email: z.string().optional(),
-        phone: z.string().optional(),
-        source: z.enum(["apollo", "lusha", "inferred"]),
-      })
-    )
-    .optional(),
+  suggested_contacts: z.array(SuggestedContactSchema).optional(),
+  enrichment_provider: z.string().optional(),
   messages: z.object({
     email: z.string(),
     whatsapp: z.string(),
@@ -97,6 +101,7 @@ export const UserProfileSchema = z.object({
   byok_openrouter_key_set: z.boolean(),
   byok_apollo_key_set: z.boolean(),
   byok_lusha_key_set: z.boolean(),
+  byok_clay_key_set: z.boolean(),
 });
 
 export type UserProfile = z.infer<typeof UserProfileSchema>;

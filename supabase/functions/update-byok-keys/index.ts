@@ -1,11 +1,11 @@
 /**
  * Edge Function: update-byok-keys
  *
- * Saves or removes a user's BYOK API keys (OpenRouter, Apollo, Lusha).
+ * Saves or removes a user's BYOK API keys (OpenRouter, Apollo, Lusha, Clay).
  * Keys are encrypted at rest with pgcrypto using ENCRYPTION_KEY secret.
  *
  * Body (all fields optional):
- *   { openrouter_key?: string, apollo_key?: string, lusha_key?: string }
+ *   { openrouter_key?: string, apollo_key?: string, lusha_key?: string, clay_key?: string }
  *
  * Pass an empty string "" to remove a key.
  */
@@ -17,12 +17,13 @@ const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_KEY       = Deno.env.get("BYOK_ENCRYPTION_SECRET") ?? "change-me-in-production";
 
-type KeyType = "openrouter" | "apollo" | "lusha";
+type KeyType = "openrouter" | "apollo" | "lusha" | "clay";
 
 interface ByokPayload {
   openrouter_key?: string;
   apollo_key?:     string;
   lusha_key?:      string;
+  clay_key?:       string;
 }
 
 // Maps payload field names to DB key_type values and user_profile flag columns
@@ -34,6 +35,7 @@ const KEY_MAP: Array<{
   { field: "openrouter_key", keyType: "openrouter", profileCol: "byok_openrouter_key_set" },
   { field: "apollo_key",     keyType: "apollo",     profileCol: "byok_apollo_key_set"     },
   { field: "lusha_key",      keyType: "lusha",      profileCol: "byok_lusha_key_set"      },
+  { field: "clay_key",       keyType: "clay",       profileCol: "byok_clay_key_set"       },
 ];
 
 Deno.serve(async (req: Request) => {

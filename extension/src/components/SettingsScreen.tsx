@@ -22,8 +22,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
 export default function SettingsScreen({ onBack }: Props) {
   const [settings, setSettings] = useState<ExtensionSettings>(DEFAULT_SETTINGS);
   const [byokOpen, setByokOpen] = useState(false);
-  const [keys, setKeys] = useState({ openrouter: "", apollo: "", lusha: "" });
+  const [keys, setKeys] = useState({ openrouter: "", apollo: "", lusha: "", clay: "" });
   const [saved, setSaved] = useState(false);
+  const [byokError, setByokError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
@@ -44,28 +45,43 @@ export default function SettingsScreen({ onBack }: Props) {
   };
 
   const saveBYOK = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    setByokError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setByokError("Sessão expirada. Faça login novamente.");
+        return;
+      }
 
-    const body: Record<string, string> = {};
-    if (keys.openrouter.trim()) body.openrouter_key = keys.openrouter.trim();
-    if (keys.apollo.trim()) body.apollo_key = keys.apollo.trim();
-    if (keys.lusha.trim()) body.lusha_key = keys.lusha.trim();
-    if (!Object.keys(body).length) return;
+      const body: Record<string, string> = {};
+      if (keys.openrouter.trim()) body.openrouter_key = keys.openrouter.trim();
+      if (keys.apollo.trim())     body.apollo_key     = keys.apollo.trim();
+      if (keys.lusha.trim())      body.lusha_key      = keys.lusha.trim();
+      if (keys.clay.trim())       body.clay_key       = keys.clay.trim();
+      if (!Object.keys(body).length) return;
 
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-byok-keys`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-byok-keys`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
 
-    setKeys({ openrouter: "", apollo: "", lusha: "" });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        setByokError(data.error ?? `Erro ao salvar chaves (${res.status})`);
+        return;
+      }
+
+      setKeys({ openrouter: "", apollo: "", lusha: "", clay: "" });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err) {
+      setByokError(err instanceof Error ? err.message : "Erro inesperado ao salvar chaves.");
+    }
   };
 
   return (
@@ -124,7 +140,7 @@ export default function SettingsScreen({ onBack }: Props) {
         {byokOpen && (
           <div style={{ padding: "12px", background: "#0f1e2e", borderRadius: "0 0 8px 8px", border: "1px solid #1e293b", borderTop: "none", display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ fontSize: 12, color: "#475569", margin: 0, lineHeight: 1.5 }}>
-              Configure suas próprias chaves de API para usar modelos IA ou enriquecimento de contatos (Apollo/Lusha). As chaves são armazenadas criptografadas no servidor — nunca ficam no dispositivo.
+              Configure suas próprias chaves de API para usar modelos IA ou enriquecimento de contatos (Apollo / Lusha / Clay). As chaves são armazenadas criptografadas no servidor — nunca ficam no dispositivo.
             </p>
 
             <ByokField
@@ -137,17 +153,30 @@ export default function SettingsScreen({ onBack }: Props) {
             <ByokField
               label="Apollo.io API Key (Contatos)"
               placeholder="sua-chave-apollo"
-              hint="Busca contatos verificados por domínio. Plano Team."
+              hint="Busca contatos verificados por domínio."
               value={keys.apollo}
               onChange={(v) => setKeys({ ...keys, apollo: v })}
             />
             <ByokField
               label="Lusha API Key (Telefones)"
               placeholder="sua-chave-lusha"
-              hint="Telefones diretos de decisores. Plano Team."
+              hint="Telefones diretos de decisores."
               value={keys.lusha}
               onChange={(v) => setKeys({ ...keys, lusha: v })}
             />
+            <ByokField
+              label="Clay API Key (Enriquecimento)"
+              placeholder="sua-chave-clay"
+              hint="Fallback para Apollo e Lusha. Plano Clay Basic ou superior."
+              value={keys.clay}
+              onChange={(v) => setKeys({ ...keys, clay: v })}
+            />
+
+            {byokError && (
+              <div style={{ fontSize: 12, color: "#f87171", background: "#450a0a", border: "1px solid #7f1d1d", borderRadius: 6, padding: "8px 10px" }}>
+                {byokError}
+              </div>
+            )}
 
             <button onClick={saveBYOK} style={btnPrimary}>
               {saved ? "Chaves salvas!" : "Salvar chaves"}

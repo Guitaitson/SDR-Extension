@@ -7,8 +7,9 @@
  * 3. Cache lookup (Supabase PostgreSQL)
  * 4. CNPJ data waterfall: OpenCNPJ → BrasilAPI → ReceitaWS
  * 5. AI message generation (OpenRouter / GPT-4o-mini)
- * 6. Usage tracking
- * 7. Response
+ * 6. Contact enrichment waterfall: Apollo → Lusha → Clay
+ * 7. Usage tracking
+ * 8. Response
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -16,9 +17,11 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { validateCnpj, stripCnpj } from "../_shared/cnpj.ts";
 import { fetchCnpjWaterfall } from "../_shared/cnpj-apis.ts";
 import { generateProspectingContent } from "../_shared/llm.ts";
+import { fetchContactsWaterfall, extractDomain } from "../_shared/contact-enrichment.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ENCRYPTION_KEY       = Deno.env.get("BYOK_ENCRYPTION_SECRET") ?? "change-me-in-production";
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -55,7 +58,7 @@ Deno.serve(async (req: Request) => {
     // ── 3. Usage limit check ─────────────────────────────────
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
-      .select("plan, lookups_used_this_month, lookups_limit, lookups_reset_at, byok_openrouter_key_set")
+      .select("plan, lookups_used_this_month, lookups_limit, lookups_reset_at, byok_openrouter_key_set, byok_apollo_key_set, byok_lusha_key_set, byok_clay_key_set")
       .eq("id", user.id)
       .single();
 
@@ -123,24 +126,64 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // ── 6. Get BYOK OpenRouter key if set ────────────────────
-    let byokOpenrouterKey: string | null = null;
-    if (profile.byok_openrouter_key_set) {
-      const { data: keyRow } = await supabase
-        .from("byok_keys")
-        .select("encrypted_key")
-        .eq("user_id", user.id)
-        .eq("key_type", "openrouter")
-        .maybeSingle();
-      if (keyRow) {
-        byokOpenrouterKey = decryptKey(keyRow.encrypted_key);
+    // ── 6. Get BYOK keys via pgcrypto RPC ────────────────────
+    async function getByokKey(keyType: string): Promise<string | null> {
+      const { data, error } = await supabase.rpc("get_byok_key", {
+        p_user_id:     user!.id,
+        p_key_type:    keyType,
+        p_encrypt_key: ENCRYPTION_KEY,
+      });
+      if (error) {
+        console.warn(`[enrich-cnpj] Failed to decrypt ${keyType} key:`, error.message);
+        return null;
       }
+      return data as string | null;
     }
+
+    const byokOpenrouterKey = profile.byok_openrouter_key_set
+      ? await getByokKey("openrouter")
+      : null;
 
     // ── 7. Generate AI prospecting content ───────────────────
     const prospecting = await generateProspectingContent(cnpjData, byokOpenrouterKey);
 
-    // ── 8. Track usage ───────────────────────────────────────
+    // ── 8. Contact enrichment waterfall (Apollo → Lusha → Clay) ─
+    const needsContacts =
+      profile.byok_apollo_key_set ||
+      profile.byok_lusha_key_set  ||
+      profile.byok_clay_key_set;
+
+    let suggestedContacts: unknown[] = [];
+    let enrichmentProvider: string | undefined;
+
+    if (needsContacts) {
+      const [apolloKey, lushaKey, clayKey] = await Promise.all([
+        profile.byok_apollo_key_set ? getByokKey("apollo") : Promise.resolve(null),
+        profile.byok_lusha_key_set  ? getByokKey("lusha")  : Promise.resolve(null),
+        profile.byok_clay_key_set   ? getByokKey("clay")   : Promise.resolve(null),
+      ]);
+
+      const normalized = normalizeCnpjData(cnpjData);
+      const domain = extractDomain(cnpjData.email as string | undefined);
+
+      const enrichResult = await fetchContactsWaterfall(
+        {
+          razao_social: (normalized.razao_social as string) ?? "",
+          domain,
+          municipio:    normalized.municipio as string | undefined,
+        },
+        {
+          apollo: apolloKey ?? undefined,
+          lusha:  lushaKey  ?? undefined,
+          clay:   clayKey   ?? undefined,
+        }
+      );
+
+      suggestedContacts  = enrichResult.contacts;
+      enrichmentProvider = enrichResult.provider;
+    }
+
+    // ── 9. Track usage ───────────────────────────────────────
     const [usageUpdate] = await Promise.all([
       supabase
         .from("user_profiles")
@@ -173,15 +216,17 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to update usage:", usageUpdate.error.message);
     }
 
-    // ── 9. Build response ────────────────────────────────────
+    // ── 10. Build response ───────────────────────────────────
     const response = {
-      cnpj_data: normalizeCnpjData(cnpjData),
-      messages: prospecting.messages,
-      company_summary: prospecting.company_summary,
-      ideal_contact_role: prospecting.ideal_contact_role,
-      objection_scripts: profile.plan !== "free" ? prospecting.objection_scripts : null,
-      cached: fromCache,
-      cached_at: cachedAt,
+      cnpj_data:           normalizeCnpjData(cnpjData),
+      suggested_contacts:  suggestedContacts,
+      enrichment_provider: enrichmentProvider,
+      messages:            prospecting.messages,
+      company_summary:     prospecting.company_summary,
+      ideal_contact_role:  prospecting.ideal_contact_role,
+      objection_scripts:   profile.plan !== "free" ? prospecting.objection_scripts : null,
+      cached:              fromCache,
+      cached_at:           cachedAt,
     };
 
     return new Response(JSON.stringify(response), {
@@ -203,12 +248,6 @@ function errorResponse(
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function decryptKey(encryptedKey: string): string {
-  // In production, use pgcrypto or a KMS.
-  // For now, base64 decode (replace with real encryption in prod).
-  return atob(encryptedKey);
 }
 
 function normalizeCnpjData(raw: Record<string, unknown>) {
