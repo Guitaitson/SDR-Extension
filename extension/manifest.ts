@@ -42,6 +42,7 @@ export default defineManifest({
   externally_connectable: {
     matches: [
       "https://sellhelper.gtaitson.space/*",
+      "https://mnihdapdnsttrjrgqblp.supabase.co/*",
       "http://localhost:3000/*",
     ],
   },
