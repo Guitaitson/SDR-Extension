@@ -16,10 +16,16 @@ function AppInner() {
   const [screen, setScreen] = useState<AppScreen>("main");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+      })
+      .catch((err) => {
+        // Storage error or extension context invalidated — show login screen
+        console.error("[SDR] getSession failed:", err);
+      })
+      .finally(() => setLoading(false));
 
     const {
       data: { subscription },
