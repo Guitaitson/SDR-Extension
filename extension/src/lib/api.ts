@@ -73,7 +73,8 @@ export async function signInWithMagicLink(email: string): Promise<void> {
   
   // Build the redirect URL with extension ID
   const callbackOrigin =
-    import.meta.env.VITE_CALLBACK_ORIGIN ?? "https://sellhelper.gtaitson.space";
+    (import.meta.env.VITE_CALLBACK_ORIGIN as string) ||
+    "https://mnihdapdnsttrjrgqblp.supabase.co/storage/v1/object/public/static";
   const redirectUrl = `${callbackOrigin}/callback.html?extension_id=${extensionId}`;
   
   const { error } = await supabase.auth.signInWithOtp({
