@@ -71,9 +71,8 @@ export async function signInWithMagicLink(email: string): Promise<void> {
   // Get the extension ID to pass to the callback page
   const extensionId = chrome.runtime.id;
   
-  // Build the redirect URL with extension ID
+  // Build the redirect URL with extension ID — hosted on Supabase Storage (no VPS needed)
   const callbackOrigin =
-    (import.meta.env.VITE_CALLBACK_ORIGIN as string) ||
     "https://mnihdapdnsttrjrgqblp.supabase.co/storage/v1/object/public/static";
   const redirectUrl = `${callbackOrigin}/callback.html?extension_id=${extensionId}`;
   
