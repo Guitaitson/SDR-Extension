@@ -140,20 +140,38 @@ export default function AuthScreen() {
     setLoading(true);
     setError(null);
     try {
-      const sessionData = JSON.parse(token.trim());
-      
-      // Set the session manually in Supabase
+      let access_token = "";
+      let refresh_token = "";
+
+      const raw = token.trim();
+
+      // Try parsing as a URL with hash fragment (#access_token=...&refresh_token=...)
+      // This covers the case where the user copies the URL from the browser address bar
+      if (raw.includes("access_token=")) {
+        const hashPart = raw.includes("#") ? raw.split("#")[1] : raw;
+        const params = new URLSearchParams(hashPart);
+        access_token = params.get("access_token") ?? "";
+        refresh_token = params.get("refresh_token") ?? "";
+      } else {
+        // Fallback: try parsing as JSON { access_token, refresh_token }
+        const parsed = JSON.parse(raw);
+        access_token = parsed.access_token;
+        refresh_token = parsed.refresh_token;
+      }
+
+      if (!access_token || !refresh_token) {
+        throw new Error("Tokens não encontrados no conteúdo colado.");
+      }
+
       const { error: sessionError } = await supabase.auth.setSession({
-        access_token: sessionData.access_token,
-        refresh_token: sessionData.refresh_token,
+        access_token,
+        refresh_token,
       });
-      
       if (sessionError) throw sessionError;
-      
-      // Reload to update the UI
+
       window.location.reload();
     } catch (err) {
-      setError("Token inválido. Verifique o formato JSON.");
+      setError(err instanceof Error ? err.message : "Conteúdo inválido. Cole a URL completa ou o JSON do token.");
     } finally {
       setLoading(false);
     }
@@ -163,18 +181,25 @@ export default function AuthScreen() {
     return (
       <div style={s.container}>
         <div style={s.success}>
-          <div style={s.successTitle}>Verifique seu e-mail</div>
+          <div style={s.successTitle}>Verifique seu e-mail ✉️</div>
           <div style={s.successText}>
-            Enviamos um link de acesso para <strong>{email}</strong>. Clique no
-            link para entrar — nenhuma senha necessária.
+            Enviamos um link para <strong>{email}</strong>.
           </div>
         </div>
-        <div style={{ ...s.subtitle, fontSize: 12, textAlign: "center" }}>
-          Após clicar no link, se o login não for automático,{" "}
-          <span style={s.link} onClick={() => setStep("token")}>
-            cole o token aqui
-          </span>
+        <div style={{ ...s.subtitle, fontSize: 12, lineHeight: 1.7 }}>
+          <strong style={{ color: "#f1f5f9" }}>Como entrar:</strong>
+          <br />
+          1. Clique no link do e-mail
+          <br />
+          2. O browser vai abrir uma página (pode dar erro — não importa)
+          <br />
+          3. <strong style={{ color: "#60a5fa" }}>Copie a URL completa</strong> da barra de endereço
+          <br />
+          4. Cole abaixo e clique em Entrar
         </div>
+        <button style={s.btn} onClick={() => setStep("token")}>
+          Colar URL / token →
+        </button>
         <button style={s.btnSecondary} onClick={() => setStep("email")}>
           Usar outro e-mail
         </button>
@@ -186,9 +211,10 @@ export default function AuthScreen() {
     return (
       <div style={s.container}>
         <div>
-          <div style={s.title}>Colar Token</div>
+          <div style={s.title}>Colar URL do login</div>
           <div style={{ ...s.subtitle, marginTop: 4 }}>
-            Cole o token JSON que aparece na página de callback após o login.
+            Cole a URL completa da barra de endereço do browser após clicar no
+            link do e-mail. Aceita URL ou JSON.
           </div>
         </div>
         <form
@@ -196,10 +222,11 @@ export default function AuthScreen() {
           style={{ display: "flex", flexDirection: "column", gap: 10 }}
         >
           <textarea
-            placeholder='{"access_token": "...", "refresh_token": "..."}'
+            placeholder="https://sellhelper.gtaitson.space/#access_token=..."
             value={token}
             onChange={(e) => setToken(e.target.value)}
             style={s.textarea}
+            autoFocus
           />
           {error && <div style={s.error}>{error}</div>}
           <button
