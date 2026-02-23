@@ -6,6 +6,7 @@
  * - Use chrome.alarms to keep logic alive for periodic tasks.
  * - All async API calls must complete within the service worker lifecycle.
  */
+import { supabase } from "@/lib/supabase";
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
@@ -41,26 +42,26 @@ chrome.runtime.onMessageExternal.addListener(
     console.log("[Service Worker] External message received from:", sender.url);
     
     if (message.type === "AUTH_TOKEN" && message.access_token && message.refresh_token) {
-      // Store the session in chrome.storage.local
-      const session = {
-        access_token: message.access_token,
-        refresh_token: message.refresh_token,
-        token_type: "bearer",
-        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        expires_in: 3600,
-        user: null, // Will be populated by Supabase client
-      };
-      
-      chrome.storage.local.set({ "supabase.auth.token": session }, () => {
-        console.log("[Service Worker] Auth token stored successfully");
-        sendResponse({ success: true });
-        
-        // Notify all extension pages that auth state changed
-        chrome.runtime.sendMessage({ type: "AUTH_STATE_CHANGED" }).catch(() => {
-          // No listeners, that's fine
+      // Use supabase.auth.setSession so the SDK writes to the correct key
+      // (sb-{ref}-auth-token) and fetches the user object. Direct
+      // chrome.storage.local writes used a wrong key and the popup never
+      // found the session.
+      supabase.auth
+        .setSession({
+          access_token: message.access_token,
+          refresh_token: message.refresh_token,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("[Service Worker] setSession error:", error.message);
+            sendResponse({ success: false, error: error.message });
+          } else {
+            console.log("[Service Worker] Session stored via SDK");
+            sendResponse({ success: true });
+            chrome.runtime.sendMessage({ type: "AUTH_STATE_CHANGED" }).catch(() => {});
+          }
         });
-      });
-      
+
       return true; // Keep channel open for async response
     }
     
@@ -80,10 +81,7 @@ chrome.alarms.create("refresh-auth", { periodInMinutes: 30 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "refresh-auth") {
-    // Trigger token refresh by getting the session
-    // The Supabase client handles refresh automatically via chromeStorageAdapter
-    chrome.storage.local.get("supabase.auth.token", () => {
-      // No-op — Supabase's autoRefreshToken handles this
-    });
+    // Let the Supabase SDK refresh the token via its own autoRefreshToken logic
+    supabase.auth.getSession().catch(() => {});
   }
 });

@@ -222,7 +222,7 @@ export default function AuthScreen() {
           style={{ display: "flex", flexDirection: "column", gap: 10 }}
         >
           <textarea
-            placeholder="https://sellhelper.gtaitson.space/#access_token=..."
+            placeholder="https://mnihdapdnsttrjrgqblp.supabase.co/storage/v1/object/public/static/callback.html?extension_id=...#access_token=..."
             value={token}
             onChange={(e) => setToken(e.target.value)}
             style={s.textarea}

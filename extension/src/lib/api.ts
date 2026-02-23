@@ -68,12 +68,17 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
 /** Send magic-link sign-in email */
 export async function signInWithMagicLink(email: string): Promise<void> {
-  // No external callback needed — tokens are extracted from the URL
-  // that Supabase redirects to (even if the page shows an error, the
-  // tokens are visible in the browser address bar for the user to copy).
+  const extensionId = chrome.runtime.id;
+  // Supabase redirects here after verification; tokens land in the URL hash.
+  // Even if the page renders as plain text, the user can copy the full URL
+  // from the browser address bar and paste it into the extension.
+  const emailRedirectTo =
+    "https://mnihdapdnsttrjrgqblp.supabase.co/storage/v1/object/public/static/callback.html" +
+    `?extension_id=${extensionId}`;
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: true, emailRedirectTo },
   });
   if (error) throw new Error(error.message);
 }
