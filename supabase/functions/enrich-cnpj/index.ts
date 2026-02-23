@@ -23,6 +23,13 @@ const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_KEY       = Deno.env.get("BYOK_ENCRYPTION_SECRET") ?? "change-me-in-production";
 
+// Platform-level contact enrichment keys — set these in Supabase secrets to
+// give ALL users (including free plan) contact results without BYOK setup.
+// Users who configure their own BYOK keys use those instead.
+const PLATFORM_APOLLO_KEY = Deno.env.get("PLATFORM_APOLLO_KEY") ?? "";
+const PLATFORM_LUSHA_KEY  = Deno.env.get("PLATFORM_LUSHA_KEY")  ?? "";
+const PLATFORM_CLAY_KEY   = Deno.env.get("PLATFORM_CLAY_KEY")   ?? "";
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -149,9 +156,8 @@ Deno.serve(async (req: Request) => {
 
     // ── 8. Contact enrichment waterfall (Apollo → Lusha → Clay) ─
     const needsContacts =
-      profile.byok_apollo_key_set ||
-      profile.byok_lusha_key_set  ||
-      profile.byok_clay_key_set;
+      profile.byok_apollo_key_set || profile.byok_lusha_key_set || profile.byok_clay_key_set ||
+      !!PLATFORM_APOLLO_KEY || !!PLATFORM_LUSHA_KEY || !!PLATFORM_CLAY_KEY;
 
     let suggestedContacts: unknown[] = [];
     let enrichmentProvider: string | undefined;
@@ -173,9 +179,10 @@ Deno.serve(async (req: Request) => {
           municipio:    normalized.municipio as string | undefined,
         },
         {
-          apollo: apolloKey ?? undefined,
-          lusha:  lushaKey  ?? undefined,
-          clay:   clayKey   ?? undefined,
+          // BYOK key (user's own) takes priority; platform key is the fallback
+          apollo: apolloKey ?? (PLATFORM_APOLLO_KEY || undefined),
+          lusha:  lushaKey  ?? (PLATFORM_LUSHA_KEY  || undefined),
+          clay:   clayKey   ?? (PLATFORM_CLAY_KEY   || undefined),
         }
       );
 
